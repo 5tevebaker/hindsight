@@ -145,6 +145,15 @@ describe("HindsightClient", () => {
     });
   });
 
+  it.each([undefined, "", "   "])(
+    "omits a blank or unset retain strategy (%s)",
+    async (strategy) => {
+      const client = new HindsightClient("https://api.example.com", undefined, mock);
+      await client.retain("b", "Note.md", "body", { strategy });
+      expect(JSON.parse(lastCall().body ?? "{}").items[0]).not.toHaveProperty("strategy");
+    }
+  );
+
   it("retain omits optional tags and observation scopes when unset", async () => {
     const client = new HindsightClient("https://api.example.com", undefined, mock);
     await client.retain("b", "Note.md", "body");

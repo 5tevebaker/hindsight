@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HindsightClient } from "../../src/client";
-import { type CliOptions, watchVault } from "../../src/node/cli";
+import { buildConfig, type CliOptions, watchVault } from "../../src/node/cli";
 import { FsVault } from "../../src/node/fs-vault";
 import { SyncEngine } from "../../src/sync";
 
@@ -30,9 +30,7 @@ async function waitFor(pred: () => boolean, timeoutMs = 8000): Promise<void> {
 
 function fakeClient() {
   return {
-    retain: vi.fn<(bank: string, docId: string, content: string, opts: unknown) => Promise<void>>(
-      async () => {}
-    ),
+    retain: vi.fn<HindsightClient["retain"]>(async () => {}),
     deleteDocument: vi.fn<(bank: string, docId: string) => Promise<void>>(async () => {}),
   };
 }
@@ -69,35 +67,51 @@ describe("watchVault (real chokidar)", () => {
   it("ingests, updates and deletes as files change on disk; ignores non-markdown", async () => {
     const client = fakeClient();
     const vault = new FsVault(root);
+    const opts = { ...options(), retainStrategy: "report-notes" };
     const engine = new SyncEngine(
       client as unknown as HindsightClient,
       vault,
-      { bankId: "b", includeFolders: [], excludeFolders: [], vaultName: "V", prefixDocId: false },
+      buildConfig(opts),
       {},
       async () => {},
       () => "T0"
     );
 
-    const watcher = await watchVault(options(), engine, vault, {
+    const watcher = await watchVault(opts, engine, vault, {
       usePolling: true,
       interval: 20,
       awaitWriteFinish: { stabilityThreshold: 40, pollInterval: 20 },
     });
+    const retained = (body: string, strategy: string) =>
+      client.retain.mock.calls.some(
+        ([bank, path, content, options]) =>
+          bank === opts.bank &&
+          path === "live.md" &&
+          content === body &&
+          options?.strategy === strategy
+      );
     try {
       await once(watcher, "ready");
 
       // Create → ingest.
       await writeFile(join(root, "live.md"), "# Live\nfirst");
-      await waitFor(() => client.retain.mock.calls.some((c) => c[1] === "live.md"));
+      await waitFor(() => retained("# Live\nfirst", "report-notes"));
 
       // A non-markdown file must be ignored entirely.
       await writeFile(join(root, "notes.txt"), "ignore me");
       await sleep(200);
       expect(client.retain.mock.calls.every((c) => c[1] !== "notes.txt")).toBe(true);
 
-      // Modify → re-ingest (a second retain for the same path).
+      // Modify → re-ingest the changed body under the vault strategy.
       await writeFile(join(root, "live.md"), "# Live\nsecond, changed");
-      await waitFor(() => client.retain.mock.calls.filter((c) => c[1] === "live.md").length >= 2);
+      await waitFor(() => retained("# Live\nsecond, changed", "report-notes"));
+
+      // An edit to frontmatter alone changes the strategy sent for the same body.
+      await writeFile(
+        join(root, "live.md"),
+        "---\nhindsight_retain_strategy: decisions\n---\n# Live\nsecond, changed"
+      );
+      await waitFor(() => retained("# Live\nsecond, changed", "decisions"));
 
       // Delete → prune.
       await rm(join(root, "live.md"));

@@ -44,6 +44,7 @@ export interface CliOptions {
   exclude: string[];
   vaultName: string;
   prefixDocId: boolean;
+  retainStrategy?: string;
   observationScopes?: ObservationScopes;
   timestampFrom?: TimestampSource;
   indexPath: string;
@@ -66,6 +67,9 @@ Options:
   --exclude <folder>    Skip this folder (repeatable)
   --vault-name <name>   Vault name for tags/ids (default: the vault dir name)
   --prefix-doc-id       Prefix document ids with the vault name (multi-vault banks)
+  --retain-strategy <name>
+                        Default retain strategy for this vault (otherwise the bank default).
+                        Override per note with hindsight_retain_strategy in frontmatter.
   --observation-scopes <mode>
                         Observation consolidation: combined, shared, per_tag,
                         or all_combinations (default: server behavior)
@@ -111,6 +115,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
       exclude: { type: "string", multiple: true },
       "vault-name": { type: "string" },
       "prefix-doc-id": { type: "boolean", default: false },
+      "retain-strategy": { type: "string" },
       "observation-scopes": { type: "string" },
       "timestamp-from": { type: "string" },
       index: { type: "string" },
@@ -153,6 +158,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     exclude: values.exclude ?? [],
     vaultName,
     prefixDocId: values["prefix-doc-id"] ?? false,
+    retainStrategy: values["retain-strategy"],
     observationScopes,
     timestampFrom,
     indexPath: values.index || defaultIndexPath(identity),
@@ -168,6 +174,7 @@ export function buildConfig(opts: CliOptions): SyncConfig {
     excludeFolders: opts.exclude,
     vaultName: opts.vaultName,
     prefixDocId: opts.prefixDocId,
+    retainStrategy: opts.retainStrategy,
     observationScopes: opts.observationScopes,
     timestampFrom: opts.timestampFrom,
   };

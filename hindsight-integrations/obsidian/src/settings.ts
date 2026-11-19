@@ -14,6 +14,7 @@ export interface HindsightSettings {
   /** DESIGN.md §0.5: OFF by default — keeps Hindsight from becoming a 2nd source of truth. */
   rememberConversations: boolean;
   prefixDocId: boolean;
+  retainStrategy: string;
   /** Omitted to preserve the Hindsight server's default observation scope. */
   observationScopes?: ObservationScopes;
   /** Which time a note's facts are dated with (`created` keeps the old behaviour). */
@@ -37,6 +38,7 @@ export const DEFAULT_SETTINGS: HindsightSettings = {
   // On by default: all vaults share one bank, so document ids must be vault-prefixed
   // to avoid cross-vault collisions (e.g. two vaults both having Notes/todo.md).
   prefixDocId: true,
+  retainStrategy: "",
   timestampFrom: "created",
   debugLogging: false,
   // Notes default to collapsed (the panel was previously always-open and noisy);
@@ -129,6 +131,18 @@ export class HindsightSettingTab extends PluginSettingTab {
       .addToggle((t) =>
         t.setValue(this.plugin.settings.syncOnEdit).onChange(async (v) => {
           this.plugin.settings.syncOnEdit = v;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Retain strategy")
+      .setDesc(
+        "Default strategy for this vault. Leave blank to use the bank default. A note can override it with hindsight_retain_strategy in frontmatter."
+      )
+      .addText((t) =>
+        t.setValue(this.plugin.settings.retainStrategy).onChange(async (v) => {
+          this.plugin.settings.retainStrategy = v;
           await this.plugin.saveSettings();
         })
       );

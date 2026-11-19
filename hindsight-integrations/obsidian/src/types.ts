@@ -28,6 +28,7 @@ export type TagGroup = TagLeaf | TagAnd;
 export interface RetainOptions {
   tags?: string[];
   observationScopes?: ObservationScopes;
+  strategy?: string;
   metadata?: Record<string, string>;
   /** ISO 8601 timestamp, or "unset" for timeless content. */
   timestamp?: string;

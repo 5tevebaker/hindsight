@@ -39,6 +39,8 @@ export interface SyncConfig {
   vaultName: string;
   /** Prefix document ids with the vault name (for multi-vault shared banks). */
   prefixDocId: boolean;
+  /** Vault default for notes that omit a frontmatter strategy. */
+  retainStrategy?: string;
   /** Omit to preserve the Hindsight server's default consolidation scope. */
   observationScopes?: ObservationScopes;
   /** Omitted = `created` (frontmatter created/date, else file birth time). */
@@ -172,6 +174,7 @@ export class SyncEngine {
 
     await this.client.retain(this.config.bankId, this.docId(file.path), note.body, {
       tags,
+      strategy: note.retainStrategy ?? this.config.retainStrategy,
       observationScopes: this.config.observationScopes,
       metadata,
       timestamp:

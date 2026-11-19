@@ -110,6 +110,61 @@ describe("runCli end-to-end over real HTTP", () => {
     expect(del!.auth).toBe("Bearer hsk_secret");
   }, 20000);
 
+  it("trims the command-line strategy before sending it to Hindsight", async () => {
+    await writeFile(join(root, "report.md"), "Report");
+    const args = [
+      "--vault",
+      root,
+      "--bank",
+      "team",
+      "--api-url",
+      baseUrl,
+      "--index",
+      join(root, "idx.json"),
+      "--retain-strategy",
+      "  report-notes  ",
+    ];
+    expect(await runCli(args, () => {})).toBe(0);
+    expect(JSON.parse(received[0].body).items[0].strategy).toBe("report-notes");
+  });
+
+  it.each([["journal"], [undefined]])(
+    "resolves per-note strategies with CLI default %s",
+    async (defaultStrategy) => {
+      await writeFile(
+        join(root, "report.md"),
+        '---\nhindsight_retain_strategy: "report-notes"\n---\nReport'
+      );
+      await writeFile(join(root, "blank.md"), "---\nhindsight_retain_strategy: '   '\n---\nBlank");
+      await writeFile(join(root, "entry.md"), "Journal entry");
+      const args = [
+        "--vault",
+        root,
+        "--bank",
+        "team",
+        "--api-url",
+        baseUrl,
+        "--index",
+        join(root, "idx.json"),
+      ];
+      if (defaultStrategy) args.push("--retain-strategy", defaultStrategy);
+
+      expect(await runCli(args, () => {})).toBe(0);
+      const items = received.map((request) => JSON.parse(request.body).items[0]);
+      expect(items).toHaveLength(3);
+      expect(items.find((item) => item.document_id === "report.md")).toMatchObject({
+        strategy: "report-notes",
+        content: "Report",
+      });
+      for (const path of ["blank.md", "entry.md"]) {
+        const item = items.find((item) => item.document_id === path);
+        expect(item).toBeDefined();
+        if (defaultStrategy) expect(item.strategy).toBe(defaultStrategy);
+        else expect(item).not.toHaveProperty("strategy");
+      }
+    }
+  );
+
   it("returns exit code 1 and reports when the server errors", async () => {
     await writeFile(join(root, "x.md"), "# X\nbody");
     // Point at a closed port so fetch fails at the socket level.

@@ -37,6 +37,21 @@ describe("normalizeNote", () => {
     expect(note.tags).toEqual(["a", "b", "c"]);
   });
 
+  it("lifts a quoted strategy into the retain options only", () => {
+    const note = normalizeNote(
+      '---\nhindsight_retain_strategy: "  report-notes  "\nstatus: draft\n---\nbody',
+      ""
+    );
+    expect(note.retainStrategy).toBe("report-notes");
+    expect(note.metadata).toEqual({ status: "draft" });
+  });
+
+  it.each(["", "   ", "'   '"])("treats a blank retain strategy (%j) as unset", (value) => {
+    const note = normalizeNote(`---\nhindsight_retain_strategy: ${value}\n---\nbody`, "");
+    expect(note.retainStrategy).toBeUndefined();
+    expect(note.metadata).not.toHaveProperty("hindsight_retain_strategy");
+  });
+
   it("lifts created into the timestamp", () => {
     const note = normalizeNote("---\ncreated: 2026-03-01T08:00:00Z\n---\nbody", "");
     expect(note.timestamp).toBe("2026-03-01T08:00:00Z");

@@ -62,6 +62,7 @@ Open **Settings → Hindsight**:
 | Bank name                 | `obsidian`                           | Shared bank for all vaults (separated by `vault:` tags)                         |
 | Include / exclude folders | —                                    | Limit which notes sync                                                          |
 | Sync on edit              | on                                   | Re-ingest notes automatically as you edit                                       |
+| Retain strategy           | bank default                         | Named retain strategy defined on the target bank for synced notes               |
 | Date facts by             | creation time                        | Last-edit time dates facts by frontmatter `updated`/`modified`, else file mtime |
 | Default chat depth        | low                                  | Reflect budget for chat answers                                                 |
 | Remember conversations    | **off**                              | When on, chat turns are stored in Hindsight (creates memory outside your vault) |
@@ -88,6 +89,12 @@ hindsight-obsidian-sync reconcile \
 hindsight-obsidian-sync reconcile --vault ~/Vaults/Brain --bank my-vault --watch
 ```
 
-`--api-url` / `--api-token` fall back to `HINDSIGHT_API_URL` / `HINDSIGHT_API_TOKEN`. Other flags: `--include` / `--exclude` (repeatable), `--vault-name`, `--prefix-doc-id`, `--timestamp-from <created|updated>` (date facts by the note's creation time, the default, or its last edit — use `updated` for notes you keep editing), and `--index`.
+`--api-url` / `--api-token` fall back to `HINDSIGHT_API_URL` / `HINDSIGHT_API_TOKEN`. Other flags: `--include` / `--exclude` (repeatable), `--vault-name`, `--prefix-doc-id`, `--retain-strategy <name>`, `--timestamp-from <created|updated>` (date facts by the note's creation time, the default, or its last edit — use `updated` for notes you keep editing), and `--index`.
+
+Use the same default retain strategy in the plugin and CLI when both sync the same vault. A note can override it with a single-line frontmatter property such as `hindsight_retain_strategy: report-notes`.
+
+A missing or blank note property inherits the vault setting or CLI flag. If both are blank, Hindsight uses the bank default. The name must match a key in the bank's `retain_strategies`. For an unknown name, Hindsight logs a warning and uses the bank's configuration without returning an error.
+
+Hindsight applies the selected strategy when it extracts new or changed passages. Changing a note's strategy or the vault default leaves existing facts in place wherever the passage text is unchanged. An ordinary reconcile skips unchanged notes after a vault setting change. To extract an entire note again, first submit it with the new strategy (in Obsidian, use **Ingest current note**), then reprocess the document in Hindsight.
 
 The sync index (the CLI's equivalent of the plugin's `data.json`) defaults to `~/.hindsight/obsidian/<vault>.json` — deliberately **outside** the vault so Obsidian Sync never propagates it. If you run the CLI and the plugin against the same bank and vault, keep their scope settings identical (include/exclude, vault name, `prefix-doc-id`): each keeps its own index and a reconcile prunes only what its own index tracks, so mismatched scope could let one delete documents the other owns.

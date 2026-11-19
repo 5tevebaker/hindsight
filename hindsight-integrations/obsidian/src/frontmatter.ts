@@ -14,6 +14,8 @@ export interface NormalizedNote {
   timestamp?: string;
   /** Last-edit time lifted from `updated`/`modified`, if present (kept in metadata too). */
   updated?: string;
+  /** Named retain strategy from the note's hindsight_retain_strategy property. */
+  retainStrategy?: string;
   /** String metadata (folder, plus any lifted scalars). */
   metadata: Record<string, string>;
 }
@@ -49,6 +51,7 @@ export function normalizeNote(raw: string, folder: string): NormalizedNote {
   if (folder) metadata.folder = folder;
   let timestamp: string | undefined;
   let updated: string | undefined;
+  let retainStrategy: string | undefined;
   let body = raw;
 
   const match = raw.match(FRONTMATTER_RE);
@@ -76,6 +79,8 @@ export function normalizeNote(raw: string, folder: string): NormalizedNote {
 
       if (key === "tags" || key === "aliases") {
         tags.push(...parseList(value));
+      } else if (key === "hindsight_retain_strategy") {
+        retainStrategy = stripQuotes(value).trim() || undefined;
       } else if ((key === "created" || key === "date") && !timestamp) {
         const v = stripQuotes(value);
         if (v) timestamp = v;
@@ -89,5 +94,5 @@ export function normalizeNote(raw: string, folder: string): NormalizedNote {
 
   // Dedupe tags while preserving order.
   const uniqueTags = [...new Set(tags)];
-  return { body: body.trim(), tags: uniqueTags, timestamp, updated, metadata };
+  return { body: body.trim(), tags: uniqueTags, timestamp, updated, retainStrategy, metadata };
 }

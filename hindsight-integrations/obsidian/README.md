@@ -57,6 +57,7 @@ Open **Settings → Hindsight**:
 | Bank name                 | `obsidian`                           | Shared bank for all your vaults (separated by `vault:` tags)                                   |
 | Include / exclude folders | —                                    | Limit which notes sync                                                                         |
 | Sync on edit              | on                                   | Re-ingest notes automatically as you edit                                                      |
+| Retain strategy           | bank default                         | Named retain strategy defined on the target bank for synced notes                              |
 | Observation consolidation | server default                       | Optional named observation scope for newly ingested content                                    |
 | Date facts by             | creation time                        | Last-edit time dates facts by frontmatter `updated`/`modified`, else the file's modified time  |
 | Default chat depth        | low                                  | Reflect budget for chat answers                                                                |
@@ -85,13 +86,25 @@ hindsight-obsidian-sync reconcile \
 hindsight-obsidian-sync reconcile --vault ~/Vaults/Brain --bank my-vault --watch
 ```
 
-`--api-url` / `--api-token` fall back to `HINDSIGHT_API_URL` / `HINDSIGHT_API_TOKEN`. Other flags: `--include <folder>` / `--exclude <folder>` (repeatable), `--vault-name <name>` (defaults to the vault dir name), `--prefix-doc-id` (prefix document ids with the vault name for multi-vault banks), `--observation-scopes <combined|shared|per_tag|all_combinations>`, `--timestamp-from <created|updated>` (date facts by the note's creation time, the default, or its last edit — frontmatter `updated`/`modified`, else file mtime; use `updated` for notes you keep editing), `--index <file>`, and `--help`.
+`--api-url` / `--api-token` fall back to `HINDSIGHT_API_URL` / `HINDSIGHT_API_TOKEN`. Other flags: `--include <folder>` / `--exclude <folder>` (repeatable), `--vault-name <name>` (defaults to the vault dir name), `--prefix-doc-id` (prefix document ids with the vault name for multi-vault banks), `--retain-strategy <name>`, `--observation-scopes <combined|shared|per_tag|all_combinations>`, `--timestamp-from <created|updated>` (date facts by the note's creation time, the default, or its last edit — frontmatter `updated`/`modified`, else file mtime; use `updated` for notes you keep editing), `--index <file>`, and `--help`.
+
+Set **Retain strategy** in the plugin or pass `--retain-strategy <name>` to choose a bank-defined strategy for the vault. A note can select a different strategy with a single-line frontmatter property.
+
+```yaml
+---
+hindsight_retain_strategy: report-notes
+---
+```
+
+A missing or blank note property inherits the vault setting or CLI flag. If both are blank, Hindsight uses the bank default. The name must match a key in the bank's `retain_strategies`. For an unknown name, Hindsight logs a warning and uses the bank's configuration without returning an error.
+
+Hindsight applies the selected strategy when it extracts new or changed passages. Changing a note's strategy or the vault default leaves existing facts in place wherever the passage text is unchanged. An ordinary reconcile skips unchanged notes after a vault setting change. To extract an entire note again, first submit it with the new strategy (in Obsidian, use **Ingest current note**), then reprocess the document in Hindsight.
 
 Observation consolidation is optional. When unset, the integration omits `observation_scopes` and preserves the Hindsight server's default. Source tags are still retained for filtering and provenance in every mode. Changing this setting affects new ingestion work; it does not automatically move existing memories or observations into the new scope, so historical scope migration requires deliberate document reingestion.
 
 The sync index (the CLI's equivalent of the plugin's `data.json`) defaults to a **per-target** file under `~/.hindsight/obsidian/` — `<vault>-<bank>-<fingerprint>.json`, deliberately **outside** the vault so Obsidian Sync never propagates it. The index is bound to the destination it was built against (API origin, bank, vault path, and the `--vault-name`/`--prefix-doc-id` document-id namespace); pointing a saved index at a different bank or API — whether via the default path or an explicit `--index` — **fails closed** with an actionable message rather than silently skipping files or mis-attributing deletes to a bank it never wrote to. Changing `--include`/`--exclude` on the _same_ destination is fine (it reuses the index and prunes newly-excluded notes it owns there).
 
-> **Running the CLI and the plugin against the same bank + vault?** Keep their config identical (`--include`/`--exclude`, `--vault-name`, `--prefix-doc-id`, `--observation-scopes`, and `--timestamp-from` matching the plugin's settings). They each keep their own index, and a reconcile prunes only what its own index tracks — so mismatched folder/id scope on the two frontends could let one prune documents the other owns, while mismatched observation scope would produce inconsistent consolidation and a mismatched timestamp source would date the same note differently depending on which frontend synced it last.
+> **Running the CLI and the plugin against the same bank + vault?** Keep their config identical (`--include`/`--exclude`, `--vault-name`, `--prefix-doc-id`, `--retain-strategy`, `--observation-scopes`, and `--timestamp-from` matching the plugin's settings). They each keep their own index, and a reconcile prunes only what its own index tracks — so mismatched folder/id scope on the two frontends could let one prune documents the other owns, while mismatched observation scope would produce inconsistent consolidation and a mismatched timestamp source would date the same note differently depending on which frontend synced it last.
 
 ## How it works
 
